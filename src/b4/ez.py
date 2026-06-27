@@ -2173,19 +2173,47 @@ def make_msgid_tpt(change_id: str, revision: int, domain: Optional[str] = None) 
     return msgid_tpt
 
 
+def _collect_cover_dests_from_trailers(
+    trailers: List[b4.LoreTrailer],
+    tos: List[Tuple[str, str]],
+    ccs: List[Tuple[str, str]],
+) -> None:
+    for mtr in list(trailers):
+        if mtr.lname == 'to' and mtr.addr is not None:
+            tos.append(mtr.addr)
+            trailers.remove(mtr)
+        elif mtr.lname == 'cc' and mtr.addr is not None:
+            ccs.append(mtr.addr)
+            trailers.remove(mtr)
+
+
+def _strip_cover_dests_from_basement(
+    basement: str, tos: List[Tuple[str, str]], ccs: List[Tuple[str, str]]
+) -> str:
+    lines = list()
+    for line in basement.splitlines(keepends=True):
+        matches = re.match(r'^(to|cc):\s+(\S.*)', line.rstrip('\r\n'), flags=re.I)
+        if matches:
+            name, value = matches.groups()
+            ltr = b4.LoreTrailer(name=name, value=value)
+            if ltr.addr is not None:
+                if ltr.lname == 'to':
+                    tos.append(ltr.addr)
+                else:
+                    ccs.append(ltr.addr)
+                continue
+        lines.append(line)
+    return ''.join(lines)
+
+
 def get_cover_dests(
     cbody: str,
 ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]], str]:
     htrs, cmsg, mtrs, basement, sig = b4.LoreMessage.get_body_parts(cbody)
     tos = list()
     ccs = list()
-    for mtr in list(mtrs):
-        if mtr.lname == 'to' and mtr.addr is not None:
-            tos.append(mtr.addr)
-            mtrs.remove(mtr)
-        elif mtr.lname == 'cc' and mtr.addr is not None:
-            ccs.append(mtr.addr)
-            mtrs.remove(mtr)
+    _collect_cover_dests_from_trailers(mtrs, tos, ccs)
+    basement = _strip_cover_dests_from_basement(basement, tos, ccs)
     cbody = b4.LoreMessage.rebuild_message(htrs, cmsg, mtrs, basement, sig)
     return tos, ccs, cbody
 

@@ -677,6 +677,37 @@ def test_auto_to_cc_sees_cover_trailers_before_changelog(prepdir: str) -> None:
     )
 
 
+def test_get_cover_dests_strips_trailers_after_changelog() -> None:
+    cbody = (
+        'Check more manually-written text files.\n'
+        '\n'
+        'Signed-off-by: Test User <test@example.com>\n'
+        '---\n'
+        'Changes in v4:\n'
+        '- Expanded the patch message.\n'
+        '- Link to v3: https://lore.example/20260604-checkpatch-v3\n'
+        '\n'
+        'To: qemu-devel@nongnu.org\n'
+        'Cc: Chao Liu <chao.liu.zevorn@gmail.com>\n'
+        '---\n'
+        ' scripts/checkpatch.pl | 3 ++-\n'
+        ' 1 file changed, 2 insertions(+), 1 deletion(-)\n'
+        '---\n'
+        'base-commit: b83371668192a705b878e909c5ae9c1233cbd5fb\n'
+        'change-id: 20250111-checkpatch-26ea9d86c76a\n'
+    )
+
+    tos, ccs, stripped = b4.ez.get_cover_dests(cbody)
+
+    assert tos == [('', 'qemu-devel@nongnu.org')]
+    assert ccs == [('Chao Liu', 'chao.liu.zevorn@gmail.com')]
+    assert 'Changes in v4:' in stripped
+    assert 'To: qemu-devel@nongnu.org' not in stripped
+    assert 'Cc: Chao Liu <chao.liu.zevorn@gmail.com>' not in stripped
+    assert 'scripts/checkpatch.pl | 3 ++-' in stripped
+    assert 'base-commit: b83371668192a705b878e909c5ae9c1233cbd5fb' in stripped
+
+
 # A single patch whose commit message body is empty: the payload jumps straight
 # from the (header-borne) subject to the '---' cutline. This is what b4 emits
 # when the author leaves the commit message blank.
