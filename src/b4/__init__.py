@@ -2899,6 +2899,7 @@ class LoreMessage:
     @staticmethod
     def get_body_parts(
         body: str,
+        force_patch_separator: bool = False,
     ) -> Tuple[List[LoreTrailer], str, List[LoreTrailer], str, str]:
         # remove any starting/trailing blank lines
         body = body.replace('\r', '')
@@ -2920,7 +2921,7 @@ class LoreMessage:
         # diff content. Free-form replies should not be split on '---', which
         # may appear as a visual separator unrelated to any patch.
         parts = [body]
-        if DIFF_RE.search(body) or DIFFSTAT_RE.search(body):
+        if force_patch_separator or DIFF_RE.search(body) or DIFFSTAT_RE.search(body):
             parts = re.split(r'^---\s*\n', body, maxsplit=1, flags=re.M)
             if len(parts) == 2:
                 basement = parts[1]
@@ -2975,6 +2976,7 @@ class LoreMessage:
 
     def fix_trailers(
         self,
+        force_patch_separator: bool = False,
         extras: Optional[List[LoreTrailer]] = None,
         copyccs: bool = False,
         addmysob: bool = False,
@@ -2985,7 +2987,7 @@ class LoreMessage:
         config = get_main_config()
 
         bheaders, message, btrailers, basement, signature = LoreMessage.get_body_parts(
-            self.body
+            self.body, force_patch_separator=force_patch_separator
         )
 
         sobtr = LoreTrailer()

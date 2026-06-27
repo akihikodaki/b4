@@ -635,6 +635,48 @@ def test_mixin_cover_keeps_notes_with_midsection_trailer_line() -> None:
     assert body.index('base-commit:') > body.index('diff --git')
 
 
+def test_auto_to_cc_sees_cover_trailers_before_changelog(prepdir: str) -> None:
+    fname = os.path.join(prepdir, 'auto-to-cc.txt')
+    with open(fname, 'w') as fh:
+        fh.write('content\n')
+    ecode, out = b4.git_run_command(None, ['add', fname], logstderr=True)
+    assert ecode == 0, f'git add failed: {out}'
+    ecode, out = b4.git_run_command(
+        None, ['commit', '-m', 'feat: exercise auto-to-cc'], logstderr=True
+    )
+    assert ecode == 0, f'git commit failed: {out}'
+
+    _cover, tracking = b4.ez.load_cover()
+    cover = (
+        'Cover title\n'
+        '\n'
+        'Cover body text.\n'
+        '\n'
+        'To: list@example.com\n'
+        '\n'
+        '---\n'
+        'Changes in v2:\n'
+        '- some change\n'
+        '- Link to v1: https://example.com/r/msgid%40example.com\n'
+    )
+    b4.ez.store_cover(cover, tracking)
+    b4.MAIN_CONFIG.update(
+        {
+            'send-series-to': 'test@example.com',
+            'send-series-cc': 'reviewer@example.com',
+        }
+    )
+
+    b4.ez.auto_to_cc()
+
+    new_cover, _tracking = b4.ez.load_cover()
+    assert new_cover.count('To: test@example.com') == 1
+    assert new_cover.count('Cc: reviewer@example.com') == 1
+    assert new_cover.index('Cc: reviewer@example.com') < new_cover.index(
+        'Changes in v2:'
+    )
+
+
 # A single patch whose commit message body is empty: the payload jumps straight
 # from the (header-borne) subject to the '---' cutline. This is what b4 emits
 # when the author leaves the commit message blank.

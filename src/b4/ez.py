@@ -3865,9 +3865,8 @@ def auto_to_cc() -> None:
 
     logger.debug('Getting addresses from cover letter')
     cover, tracking = load_cover(strip_comments=False)
-    parts = b4.LoreMessage.get_body_parts(cover)
     seen = set()
-    for ltr in parts[2]:
+    for ltr in b4.LoreMessage.find_trailers(cover)[0]:
         if not ltr.addr:
             continue
         seen.add(ltr.addr[1])
@@ -3922,7 +3921,9 @@ def auto_to_cc() -> None:
         cmsg.set_payload(cover, charset='utf-8')
         clm = b4.LoreMessage(cmsg)
         fallback_order = str(config.get('send-trailer-order', 'To,Cc,*'))
-        clm.fix_trailers(extras=extras, fallback_order=fallback_order)
+        clm.fix_trailers(
+            force_patch_separator=True, extras=extras, fallback_order=fallback_order
+        )
         logger.info('---')
         logger.info('You can trim/expand this list with: b4 prep --edit-cover')
         store_cover(clm.body, tracking)
